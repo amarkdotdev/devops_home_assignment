@@ -1,0 +1,24 @@
+.env
+
+# Ignore Python virtual environments
+.venv/
+__pycache__/
+*.pyc
+
+# Ignore IDE/editor settings
+.vscode/
+.idea/
+*.swp
+
+# Ignore Docker build leftovers (optional)
+*.log
+*.pid
+*.tar
+*.sqlite3
+
+# Mac OS stuff
+.DS_Store
+
+# Bytecode and cache
+*.pyo
+*.pyd
