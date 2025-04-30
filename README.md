@@ -64,7 +64,7 @@ get_items_by_year("issues", 2025)
 ### 1. Clone this repo
 
 ```bash
-git clone https://github.com/yourname/devops_home_assignment.git
+git clone https://github.com/amarkdotdev/devops_home_assignment.git
 cd devops_home_assignment
 ```
 
