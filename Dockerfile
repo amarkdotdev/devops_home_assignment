@@ -1,19 +1,29 @@
+# ────────────────────────────────────────────────────────────
+#  GitLab HTTPS FastAPI microservice  •  python:3.11‑alpine
+# ────────────────────────────────────────────────────────────
 FROM python:3.11-alpine
 
+# 1. Base setup
 WORKDIR /app
-
-# Install system packages needed for OpenSSL
 RUN apk add --no-cache build-base openssl
 
-# Copy and install dependencies
+# 2. Python deps
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy rest of the code, including certs
-COPY . .
+# 3. App source
+COPY main.py .
 
-# Expose HTTPS port
+# 4. Generate self‑signed TLS cert (dev convenience)
+RUN mkdir -p certs && \
+    openssl req -x509 -newkey rsa:4096 -nodes \
+        -keyout certs/key.pem \
+        -out   certs/cert.pem \
+        -days 365 \
+        -subj "/CN=localhost"
+
+# 5. Expose HTTPS port
 EXPOSE 8443
 
-# Run via HTTPS
-ENTRYPOINT ["python", "run_https.py"]
+# 6. Launch FastAPI via Uvicorn (HTTPS)
+ENTRYPOINT ["python", "main.py"]

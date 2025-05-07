@@ -38,6 +38,7 @@ def grant_access(data: GrantRequest):
     repo_or_group_name = data.repo_or_group
     role = data.role.lower()
 
+    # Step 1: get user ID
     user_resp = requests.get(f"{gitlab_url}/users?username={username}", headers=HEADERS)
     user_resp.raise_for_status()
     users = user_resp.json()
@@ -45,15 +46,18 @@ def grant_access(data: GrantRequest):
         return {"error": f"User '{username}' not found"}
     user_id = users[0]["id"]
 
+    # Step 2: validate role
     access_level = GITLAB_ROLES.get(role)
     if not access_level:
         return {"error": f"Invalid role '{role}'"}
 
+    # Step 3: determine if it's a project or group
     encoded_name = quote(repo_or_group_name, safe="")
     is_project = requests.get(f"{gitlab_url}/projects/{encoded_name}", headers=HEADERS).status_code == 200
     scope = "project" if is_project else "group"
     base_url = f"{gitlab_url}/{scope}s/{encoded_name}/members"
 
+    # Step 4: try to add the user directly
     add_resp = requests.post(
         base_url,
         headers=HEADERS,
@@ -63,19 +67,27 @@ def grant_access(data: GrantRequest):
     if add_resp.status_code in (200, 201):
         return {"result": f"Added '{username}' to {scope} '{repo_or_group_name}' as '{role}'"}
 
+    # Step 5: if already a member, check the current role
     if add_resp.status_code in (400, 409):
         check_resp = requests.get(f"{base_url}/{user_id}", headers=HEADERS)
         if check_resp.status_code != 200:
             return {"error": f"Failed to check current role for '{username}'"}
 
         current_access = check_resp.json().get("access_level")
-        current_role = next((r for r, lvl in GITLAB_ROLES.items() if lvl == current_access), "unknown")
+        current_role = "unknown"
+        for role_name, level in GITLAB_ROLES.items():
+            if level == current_access:
+                current_role = role_name
+                break
 
+        print(f"Current role in {scope} of {username} in '{repo_or_group_name}' is: '{current_role}'")
         if current_role == role:
             return {"result": f"No update needed — current role of '{username}' is already '{role}'"}
+
         if current_role == "owner":
             return {"error": f"'{username}' is an Owner — cannot override with lower role"}
 
+        # Step 6: Update their role
         update = requests.put(
             f"{base_url}/{user_id}",
             headers=HEADERS,
