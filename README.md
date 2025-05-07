@@ -1,106 +1,164 @@
+# 🔐 GitLab Permissions & History — HTTPS API Service (FastAPI + Uvicorn via Docker)
 
-# 🔧 GitLab Permissions & History CLI Tool (Dockerized)
+A secure **FastAPI**-based microservice to:
 
-A lightweight CLI utility (in Docker) for:
-1. **Granting a GitLab user a specific role on a project or group**
-2. **Fetching all issues or merge requests created in a given year**
+1. 🚀 Grant GitLab user permissions on projects or groups
+2. 🗓️ Fetch issues or merge requests by year
 
-Built in Python, using the GitLab API v15.11, and packaged in a minimal Alpine-based Docker container.
-
----
-
-## 📦 Features
-
-- 🛡️ Grant or update permissions (`guest`, `reporter`, `developer`, `maintainer`, `owner`) to a user on a GitLab project or group
-- 🕒 Fetch all issues or merge requests created in a specific year
-- 🐳 Dockerized CLI for consistent, secure usage
-- 🔐 Uses `.env` file for secure token access
+Now served over **HTTPS** via **Uvicorn** inside a **Docker** container!
 
 ---
 
-## 🧱 Project Structure
+## 💪 Features
+
+* 🔒 HTTPS secured API (self-signed or real certs)
+* 🎓 Grant GitLab access levels: `guest`, `reporter`, `developer`, `maintainer`, `owner`
+* 🕒 Query GitLab for issues or merge requests by year
+* 💪 FastAPI backend with automatic `/docs`
+* 🐿 Lightweight, production-ready Docker image
+* 🔐 Uses `.env` file for secrets
+
+---
+
+## 📁 Project Structure
 
 ```
 devops_home_assignment/
-├── home_assignment.py      # Core logic functions
-├── entrypoint.py           # CLI parser and dispatcher
-├── Dockerfile              # Alpine-based Docker image
-├── requirements.txt        # Python deps (requests, dotenv)
-└── .env                    # Private token (ignored by git)
+├── main.py             # FastAPI app with 2 routes
+├── run_https.py        # HTTPS server entrypoint using Uvicorn
+├── home_assignment.py  # Core GitLab logic (API requests)
+├── entrypoint.py       # Optional CLI fallback
+├── Dockerfile          # Alpine-based Docker setup
+├── requirements.txt    # Python deps
+├── certs/              # SSL cert + key
+│   ├── cert.pem
+│   └── key.pem
+├── .env                # GitLab PAT + URL (not committed)
+└── README.md
 ```
 
 ---
 
-## 🧪 The Functions
+## 🔐 SSL Certificate Setup
 
-### 1. `grant_permission(username, repo_or_group, role)`
-Grants or updates the user's access role (e.g., `developer`) on the specified GitLab **project** or **group**.
+Use your own cert, or generate a self-signed one (for localhost testing):
 
-- If the user is already a member, updates their role (unless they're Owner).
-- If not, adds them directly.
-
-Example:
 ```bash
-grant_permission("aaronofjm", "mobileye_group_VPs", "developer")
+mkdir -p certs
+openssl req -x509 -newkey rsa:4096 -nodes \
+  -keyout certs/key.pem -out certs/cert.pem \
+  -days 365 -subj "/CN=localhost"
 ```
 
 ---
 
-### 2. `get_items_by_year(item_type, year)`
-Fetches **issues** or **merge requests** created in the specified year.
+## 🚀 Run with Docker
 
-- `item_type`: `"issues"` or `"mr"`
-- `year`: 4-digit year like `2024`
-
-Example:
-```bash
-get_items_by_year("issues", 2025)
-```
-
----
-
-## 🚀 Run it with Docker
-
-### 1. Clone this repo
+### 1. Clone the repo
 
 ```bash
 git clone https://github.com/amarkdotdev/devops_home_assignment.git
 cd devops_home_assignment
 ```
 
-### 2. Add your GitLab token to `.env`
+### 2. Add a `.env` file
 
-Create a `.env` file:
-```
+```env
 PAT=your_gitlab_token_here
+GITLAB_URL=https://gitlab.com/api/v4
 ```
-
-> Your token must have `api` scope.
-
----
 
 ### 3. Build the Docker image
 
 ```bash
-docker build -t gitlab-tool .
+docker build -t gitlab-tool-https .
+```
+
+### 4. Run it (HTTPS on port 8443)
+
+```bash
+docker run -p 8443:8443 --env-file .env gitlab-tool-https
+```
+
+Then visit:
+
+* 🔗 [https://localhost:8443/docs](https://localhost:8443/docs)
+
+> Accept browser warning if using self-signed certs.
+
+---
+
+## 🔎 API Endpoints
+
+### POST `/grant_permission`
+
+Grants a GitLab user a role in a group/project.
+
+**Request Body:**
+
+```json
+{
+  "username": "aaronofjm",
+  "repo_or_group": "mobileye_group_VPs",
+  "role": "developer"
+}
+```
+
+**Response:**
+
+```json
+{
+  "result": "Added 'aaronofjm' to group 'mobileye_group_VPs' as 'developer'"
+}
 ```
 
 ---
 
-### 4. Run it!
+### GET `/get_items_by_year`
 
-#### ✅ Grant permission to a user:
-```bash
-docker run --env-file .env gitlab-tool grant_permission aaronofjm mobileye_group_VPs reporter
+Returns all issues/MRs from a given year.
+
+**Query Parameters:**
+
+* `item_type`: `issues` or `mr`
+* `year`: e.g. `2025`
+
+**Example:**
+
+```
+GET https://localhost:8443/get_items_by_year?item_type=issues&year=2025
 ```
 
-#### ✅ Fetch issues or MRs from a year:
-```bash
-docker run --env-file .env gitlab-tool get_items_by_year issues 2025
-docker run --env-file .env gitlab-tool get_items_by_year mr 2023
+**Response:**
+
+```json
+{
+  "count": 5,
+  "items": [
+    { "id": 123, "title": "Fix X", "created_at": "2025-01-12T..." },
+  ]
+}
 ```
 
 ---
 
-📝 *I hope I get the job!*  
-— Aaron Mark
+## 🔄 CLI Mode (Optional)
+
+Still supported:
+
+```bash
+docker run --env-file .env gitlab-tool-https grant_permission aaronofjm mobileye_group_VPs developer
+docker run --env-file .env gitlab-tool-https get_items_by_year issues 2025
+```
+
+---
+
+## 🔒 Security Notes
+
+* Do NOT commit your `.env` or real certs
+* Use valid TLS certs for production (Let's Encrypt or org-issued)
+* Use authentication or IP restrictions in production environments
+
+---
+
+📝 *Built with heart by Aaron Mark — wish me luck!* 🚀
