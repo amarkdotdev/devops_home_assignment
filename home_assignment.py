@@ -6,7 +6,8 @@ from urllib.parse import quote
 load_dotenv()
 
 private_token = os.getenv('PAT')
-gitlab_url = 'https://gitlab.com/api/v4'
+gitlab_url = os.getenv("GITLAB_URL")
+
 
 HEADERS = {
     "PRIVATE-TOKEN": private_token,
